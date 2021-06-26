@@ -33,12 +33,12 @@ app.get("/suppliers", function(req, res) {
 });
 
 app.get("/products", function(req, res) {
-    pool.query('select * from products p join suppliers s on p.supplier_id = s.id', (error, result) => {
+    pool.query(`Select s.supplier_name , p.product_name 
+                from products p 
+                join suppliers s on p.supplier_id = s.id`, (error, result) => {
         res.json(result.rows);
     });
 });
 
 
-// app.listen(3000,function(){
-//     console.log('Server is listening on port 3000. Ready to accept request!');
-// });
+
