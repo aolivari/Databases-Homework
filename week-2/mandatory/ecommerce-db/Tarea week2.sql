@@ -61,6 +61,8 @@ join suppliers s on s.id = p.supplier_id  join order_items oi on oi.product_id =
 where s.country = 'China';
 
 
+select * from products p join suppliers s on p.supplier_id = s.id;
+
 
 
 
