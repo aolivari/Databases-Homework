@@ -40,5 +40,18 @@ app.get("/products", function(req, res) {
     });
 });
 
-
+app.get("/products/:productId", function(req, res){
+    const productId = parseInt(req.params.productId);
+  
+    if (productId && productId > 0){
+        pool.query(`Select s.supplier_name , p.product_name 
+            from products p 
+            join suppliers s on p.supplier_id = s.id where p.id= ${productId}`, (error,result) =>{
+            res.json(result.rows);
+            
+        });        
+        } else
+        res.status(400).send({message: 'Parameter must be a number'})
+    
+})
 
