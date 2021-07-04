@@ -1,7 +1,7 @@
 const { query } = require("express");
 const express = require("express");
 const app = express();
-const {sqlmaster} = require("./forms");
+const { sqlmaster, sqlFunctions } = require("./forms");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -41,8 +41,6 @@ app.get("/suppliers", function (req, res) {
 //This endpoint should still work even if you don't use the name query parameter!
 app.get("/suppliers/:productName", function (req, res) {
   let prodID = sqlmaster.mayusculas(req.params.productName);
-  console.log(prodID)
-
   pool.query(
     `select * from products p 
                 where product_name like '${prodID}%'`,
@@ -106,9 +104,7 @@ app.post("/customers/", (req, res) => {
     return res.send('chequear si se ha completado todos los valores name, adress, city y country')
   }
   pool.connect((error, client, release) => {
-    if (error) {
-      return console.error("Error acquiring client", err.stack);
-    }
+    sqlFunctions.poolfunction(error)
     client.query(sqlmaster.createCustomer, value, (err, result) => {
       release();
 
@@ -132,9 +128,7 @@ app.post("/products", (req, res) => {
   let { productName, unitPrice, supplierId } = req.body;
   let values = [productName, unitPrice, supplierId];
   pool.connect((error, client, release) => {
-    if (error) {
-      return console.error("Error acquiring client", err.stack);
-    }
+    sqlFunctions.poolfunction(error)
     client.query(sqlmaster.checkSIdValid, [supplierId], (err, result) => {
       let num = result.rowCount
       if (num === 0) {
@@ -193,9 +187,7 @@ app.put("/customers/:customerId", (req, res) => {
     return
   }
   pool.connect((error, client, released) => {
-    if (error) {
-      return console.error("Error acquiring client", err.stack);
-    }
+    sqlFunctions.poolfunction(error)
     client.query(sqlmaster.checkCustomer, [id], (error, result) => {
       if (result.rowCount === 0) {
         released()
@@ -217,46 +209,44 @@ app.put("/customers/:customerId", (req, res) => {
 */
 
 
-app.delete('/orders/:orderId',(req,res)=>{
-  id=parseInt(req.params.orderId)
+app.delete('/orders/:orderId', (req, res) => {
+  id = parseInt(req.params.orderId)
   if (isNaN(id) || id < 0) {
     res.status(401).send('el valor debe de ser un numero mayor que cero')
     return
   }
-  pool.query(sqlFunctions.del("order_items","order_id"),[id],(error,result)=>{
+  pool.query(sqlFunctions.del("order_items", "order_id"), [id], (error, result) => {
     console.log(result.rowCount)
   })
-  pool.query(sqlFunctions.del("orders","id"),[id],(error,result)=>{
+  pool.query(sqlFunctions.del("orders", "id"), [id], (error, result) => {
     console.log(result.rowCount)
     res.status(201).send(`la order id ${id} ha sido eliminada de la tabla Orders`);
   })
 })
-  /*Add a new DELETE endpoint /customers/:customerId
-   to delete an existing customer only if this 
-   customer doesn't have orders.
-  */
+/*Add a new DELETE endpoint /customers/:customerId
+ to delete an existing customer only if this 
+ customer doesn't have orders.
+*/
 
 
-app.delete('/customers/:customerId',(req,res)=>{
-  id=parseInt(req.params.customerId)
-  checkValID(id)
-  pool.connect((error,client,released)=>{
-    if (error) {
-      return console.error("Error acquiring client", err.stack);
-    }
-    client.query(sqlFunctions.select('orders','customer_id'),[id],(error,result)=>{
-      if(result.rowCount>0){
+app.delete('/customers/:customerId', (req, res) => {
+  id = parseInt(req.params.customerId)
+  sqlFunctions.checkValID(id)
+  pool.connect((error, client, released) => {
+    sqlFunctions.poolfunction(error)
+    client.query(sqlFunctions.select('orders', 'customer_id'), [id], (error, result) => {
+      if (result.rowCount > 0) {
         released()
         return res.status(401).send(`Hay ${result.rowCount} ordenes asociadas al customer con id ${id}`)
-      }else  client.query(sqlFunctions.select('customers','id'),[id],(error,result)=>{
-        if (result.rowCount===0) {
+      } else client.query(sqlFunctions.select('customers', 'id'), [id], (error, result) => {
+        if (result.rowCount === 0) {
           released()
           return res.status(201).send(`El usuario con id ${id} no se encuentra en la tabla customers`)
-        }else client.query(sqlFunctions.del('customers','id')[id],(error,result)=>{
+        } else client.query(sqlFunctions.del('customers', 'id')[id], (error, result) => {
           released()
           return res.status(201).send(`El usuario con id ${id} ha sido eliminado de la tabla Customers`)
         })
-      }) 
+      })
     })
   })
 })
@@ -266,17 +256,32 @@ app.delete('/customers/:customerId',(req,res)=>{
   order references, order dates, product names, unit prices, suppliers and quantities.
 */
 //todas las ordenes con los item orders de un user_id 
-app.get('/customers/:customerId/orders',(req,res)=>{
-  id=parseInt(req.params.customerId)
-  console.log(id)
-  pool.query(sqlmaster.orderDetails,[id],(error,result)=>{
-    if(error){
-      return res.send(error)
-    }
-    return res.send(result)
+app.get('/customers/:customerId/orders', (req, res) => {
+  id = parseInt(req.params.customerId)
+  sqlFunctions.checkValID(id)
+  pool.connect((error, client, released) => {
+    sqlFunctions.poolfunction(error)
+    client.query(sqlFunctions.select("customers", "id"), [id], (error, result) => {
+      if (result.rowCount === 0) {
+        released()
+        return res.send(`El ID ${id}, no esta asociado a ningun usuario`)
+      } else client.query(sqlmaster.orderDetails, [id], (error, result) => {
+        if (result.rowCount > 0) {
+          return res.send(result.rows)
+        }
+        if (result.rowCount === 0) {
+          released()
+          client.query(sqlFunctions.select('customers', 'id'), [id], (error, result) => {
+            return res.send(`el usuario ${result.rows[0].name} no tiene ninguna orden aún`)
+          })
+        }
+      })
 
+    })
   })
 })
+
+
 
 
 
