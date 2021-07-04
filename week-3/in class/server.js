@@ -38,6 +38,7 @@ app.get("/hotels", function (req, res) {
 });
 
 app.post("/hotels", (req, res) => {
+
   let { name, rooms, postcode } = req.body;
   let value = [name, rooms, postcode];
   pool.connect((err, client, release) => {
@@ -97,3 +98,4 @@ app.delete("/hotels/:hotelId", function (req, res) {
 app.listen(3000, function () {
   console.log("Server is listening on port 3000. Ready to accept requests!");
 });
+
